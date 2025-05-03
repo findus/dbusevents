@@ -44,17 +44,17 @@ async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
                     let name = device_props
                         .get("Name")
                         .and_then(|v| v.downcast_ref::<String>().into())
-                        .unwrap()?;
+                        .unwrap_or_else(|| Ok(String::new()))?;
 
                     let address = device_props
                         .get("Address")
                         .and_then(|v| v.downcast_ref::<String>().into())
-                        .unwrap()?;
+                        .unwrap_or_else(|| Ok(String::new()))?;
 
                     let iconType = device_props
                         .get("Icon")
                         .and_then(|v| v.downcast_ref::<String>().into())
-                        .unwrap()?;
+                        .unwrap_or_else(|| Ok(String::new()))?;
 
                     let icon = match iconType.as_str() {
                         "input-mouse" => "".to_string(),
@@ -71,7 +71,7 @@ async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
                                 .get("Percentage")
                                 .and_then(|v| v.downcast_ref::<u8>().into())
                         })
-                        .unwrap();
+                        .unwrap_or_else(|| Ok(0));
 
                     vec.push(BluetoothStatus {
                         bat: battery_level.unwrap(),
@@ -96,12 +96,12 @@ pub struct WaybarStatus {
 pub fn format_waybar(devices: &Vec<BluetoothStatus>) -> WaybarStatus {
     let text = devices.iter().fold("".to_string(), |last, entry| {
         let batperc = match entry.bat {
-            81..=100 => " ",
-            60..=80 => " ",
-            40..=59 => " ",
-            20..=39 => " ",
-            0..=19 => " ",
-            _ => " ",
+            81..=100 => "",
+            60..=80 => "",
+            40..=59 => "",
+            20..=39 => "",
+            0..=19 => "",
+            _ => "",
         };
         format!("{} [{} {}]", last, entry.btype, batperc)
     });
