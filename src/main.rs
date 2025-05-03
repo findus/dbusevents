@@ -113,9 +113,10 @@ pub fn format_waybar(devices: &Vec<BluetoothStatus>) -> WaybarStatus {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let devices = get_devices().await?;
+    let mut devices = get_devices().await?;
+    devices.sort_by_key(|item| item.name.to_string());
     let status = format_waybar(&devices);
-    let json = serde_json::to_string_pretty(&status).unwrap();
+    let json = serde_json::to_string(&status).unwrap();
     println!("{}", json);
 
     Ok(())
