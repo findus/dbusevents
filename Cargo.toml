@@ -10,3 +10,16 @@ tokio = { version = "1", features = ["full"] }
 serde_json = "1.0.140"
 anyhow = { version = "1.0.98" }
 serde = { version = "1", features = ["derive"] }
+futures-util = { version = "0.3.31" }
+futures = { version = "0.3.31" }
+nix = "0.30.0"
+sysinfo = "0.35.0"
+libc = { version = "0.2.172" }
+
+[[bin]]
+name = "btinfo"
+path = "src/bin/main.rs"
+
+[[bin]]
+name = "btevents"
+path = "src/bin/events.rs"
