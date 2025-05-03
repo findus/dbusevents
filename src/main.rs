@@ -1,7 +1,7 @@
 use anyhow::Error;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, OwnedValue};
+use zbus::zvariant::OwnedValue;
 use zbus::Connection;
 use zvariant::OwnedObjectPath;
 
@@ -51,16 +51,16 @@ async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
                         .and_then(|v| v.downcast_ref::<String>().into())
                         .unwrap_or_else(|| Ok(String::new()))?;
 
-                    let iconType = device_props
+                    let icon_type = device_props
                         .get("Icon")
                         .and_then(|v| v.downcast_ref::<String>().into())
                         .unwrap_or_else(|| Ok(String::new()))?;
 
-                    let icon = match iconType.as_str() {
+                    let icon = match icon_type.as_str() {
                         "input-mouse" => "".to_string(),
                         "input-keyboard" => "".to_string(),
                         "audio-headset" | "audio-headphones" => "".to_string(),
-                        _ => iconType,
+                        _ => icon_type,
                     };
 
                     // Try to get battery level if available
@@ -84,7 +84,7 @@ async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
         }
     }
 
-    return Ok(vec);
+    Ok(vec)
 }
 
 #[derive(serde::Serialize, Deserialize, Debug)]
@@ -93,7 +93,10 @@ pub struct WaybarStatus {
     class: String,
 }
 
-pub fn format_waybar(devices: &Vec<BluetoothStatus>) -> WaybarStatus {
+fn format_waybar(devices: &[BluetoothStatus]) -> Option<WaybarStatus> {
+    if devices.is_empty() {
+        return Option::None;
+    }
     let text = devices.iter().fold("".to_string(), |last, entry| {
         let batperc = match entry.bat {
             81..=100 => "",
@@ -105,19 +108,18 @@ pub fn format_waybar(devices: &Vec<BluetoothStatus>) -> WaybarStatus {
         };
         format!("{} [{} {}]", last, entry.btype, batperc)
     });
-    WaybarStatus {
+    Some(WaybarStatus {
         text,
         class: "default".to_string(),
-    }
+    })
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut devices = get_devices().await?;
     devices.sort_by_key(|item| item.name.to_string());
-    let status = format_waybar(&devices);
-    let json = serde_json::to_string(&status).unwrap();
-    println!("{}", json);
-
+    if let Some(status) = format_waybar(&devices) {
+        println!("{}", serde_json::to_string(&status).unwrap());
+    }
     Ok(())
 }
