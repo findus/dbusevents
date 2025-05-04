@@ -1,7 +1,5 @@
-use core::time;
-use std::{ffi::OsStr, thread};
-
 use futures_util::stream::StreamExt;
+use std::ffi::OsStr;
 use zbus::{proxy, zvariant::OwnedObjectPath, Connection};
 
 #[proxy(
@@ -18,19 +16,20 @@ trait Systemd1Manager {
 }
 
 fn notify_waybar() {
-    thread::sleep(time::Duration::from_millis(2000));
     let mut system = sysinfo::System::new();
     system.refresh_all();
 
     let pid = system
         .processes_by_exact_name(OsStr::new("waybar"))
         .next()
-        .unwrap()
-        .pid()
-        .as_u32() as i32;
+        .map(|e| e.pid().as_u32() as i32);
 
-    let signal_number = { libc::SIGRTMIN() + 13 };
-    let _ = unsafe { libc::kill(pid, signal_number) };
+    if let Some(pid) = pid {
+        let signal_number = { libc::SIGRTMIN() + 13 };
+        let _ = unsafe { libc::kill(pid, signal_number) };
+    } else {
+        println!("Waybar not active")
+    }
 }
 
 async fn watch_systemd_jobs() -> anyhow::Result<()> {

@@ -34,57 +34,70 @@ async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
     )
     .await?;
 
-    let objects: BluezManagedObjects = proxy.call("GetManagedObjects", &()).await?;
     let mut vec: Vec<BluetoothStatus> = vec![];
+    let mut failcount = 20;
 
-    for (_, interfaces) in objects {
-        if let Some(device_props) = interfaces.get("org.bluez.Device1") {
-            if let Some(connected_val) = device_props.get("Connected") {
-                if let Ok(true) = connected_val.downcast_ref::<bool>() {
-                    let name = device_props
-                        .get("Name")
-                        .and_then(|v| v.downcast_ref::<String>().into())
-                        .unwrap_or_else(|| Ok(String::new()))?;
+    loop {
+        failcount = failcount - 1;
+        if failcount <= 0 {
+            break Ok(vec);
+        }
 
-                    let address = device_props
-                        .get("Address")
-                        .and_then(|v| v.downcast_ref::<String>().into())
-                        .unwrap_or_else(|| Ok(String::new()))?;
+        let objects: BluezManagedObjects = proxy.call("GetManagedObjects", &()).await?;
 
-                    let icon_type = device_props
-                        .get("Icon")
-                        .and_then(|v| v.downcast_ref::<String>().into())
-                        .unwrap_or_else(|| Ok(String::new()))?;
+        for (_, interfaces) in objects {
+            if let Some(device_props) = interfaces.get("org.bluez.Device1") {
+                if let Some(connected_val) = device_props.get("Connected") {
+                    if let Ok(true) = connected_val.downcast_ref::<bool>() {
+                        let Some(Ok(name)) = device_props
+                            .get("Name")
+                            .and_then(|v| v.downcast_ref::<String>().into())
+                        else {
+                            continue;
+                        };
 
-                    let icon = match icon_type.as_str() {
-                        "input-mouse" => "".to_string(),
-                        "input-keyboard" => "".to_string(),
-                        "audio-headset" | "audio-headphones" => "".to_string(),
-                        _ => icon_type,
-                    };
+                        let Some(Ok(address)) = device_props
+                            .get("Address")
+                            .and_then(|v| v.downcast_ref::<String>().into())
+                        else {
+                            continue;
+                        };
 
-                    // Try to get battery level if available
-                    let battery_level = interfaces
-                        .get("org.bluez.Battery1")
-                        .and_then(|battery_props| {
-                            battery_props
-                                .get("Percentage")
-                                .and_then(|v| v.downcast_ref::<u8>().into())
-                        })
-                        .unwrap_or_else(|| Ok(0));
+                        let Some(Ok(icon_type)) = device_props
+                            .get("Icon")
+                            .and_then(|v| v.downcast_ref::<String>().into())
+                        else {
+                            continue;
+                        };
 
-                    vec.push(BluetoothStatus {
-                        bat: battery_level.unwrap(),
-                        name,
-                        btype: icon,
-                        address,
-                    });
+                        let icon = match icon_type.as_str() {
+                            "input-mouse" => "".to_string(),
+                            "input-keyboard" => "".to_string(),
+                            "audio-headset" | "audio-headphones" => "".to_string(),
+                            _ => icon_type,
+                        };
+
+                        // Try to get battery level if available
+                        let battery_level = interfaces
+                            .get("org.bluez.Battery1")
+                            .and_then(|battery_props| {
+                                battery_props
+                                    .get("Percentage")
+                                    .and_then(|v| v.downcast_ref::<u8>().into())
+                            })
+                            .unwrap_or_else(|| Ok(0));
+
+                        vec.push(BluetoothStatus {
+                            bat: battery_level.unwrap(),
+                            name,
+                            btype: icon,
+                            address,
+                        });
+                    }
                 }
             }
         }
     }
-
-    Ok(vec)
 }
 
 #[derive(serde::Serialize, Deserialize, Debug)]
