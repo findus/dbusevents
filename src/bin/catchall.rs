@@ -105,10 +105,7 @@ async fn main() -> anyhow::Result<()> {
             // );
 
             for handler in &toml {
-               // println!("{:?}", handler.path);
-              //  println!("{:?}", msg.header().path().expect("path"));
                 if handler.path.is_match(msg.header().path().expect("path")) {
-               //     println!("match!");
                     if handler.member.is_match(msg.header().member().expect("member")) {
                         if let Some(signal) = handler.signal {
                             let proc = &handler.signal_process;
