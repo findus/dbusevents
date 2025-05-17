@@ -37,13 +37,7 @@ jobs:
       - name: Install libdbus
         run: sudo apt-get install libdbus-1-dev
 
-      - name: Install sqlite3
-        run: sudo apt install libsqlite3-dev
-
-      - name: Install scdoc
-        run: sudo apt-get install scdoc
-
-      - name: "Cacbe rust binaries"
+      - name: "Cache rust binaries"
         uses: actions/cache@v4
         with:
           path: |
@@ -55,6 +49,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - run: "cargo build --release --bin dbusevents"
+      - run: "cargo build --release --bin dbusbtinfo"
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
@@ -62,6 +57,7 @@ jobs:
           prerelease: true
           automatic_release_tag: "${{ github.event.release.tag_name }}"
           files: |
-            target/release/apnotes
-            target/release/apnotes-tui
+            target/release/dbusevents
+            target/release/dbusbtinfo
+
         id: "automatic_releases"

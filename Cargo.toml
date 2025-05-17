@@ -20,7 +20,7 @@ env_logger = "0.11.8"
 log = "0.4.27"
 
 [[bin]]
-name = "checker"
+name = "dbusbtinfo"
 path = "src/bin/checker.rs"
 
 [[bin]]
