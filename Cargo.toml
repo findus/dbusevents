@@ -15,6 +15,10 @@ futures = { version = "0.3.31" }
 nix = "0.30.0"
 sysinfo = "0.35.0"
 libc = { version = "0.2.172" }
+regex = "1.11.1"
+xdg = "3.0.0"
+toml = "0.8.22"
+lazy_static = "1.5.0"
 
 [[bin]]
 name = "btinfo"
@@ -23,3 +27,7 @@ path = "src/bin/main.rs"
 [[bin]]
 name = "btevents"
 path = "src/bin/events.rs"
+
+[[bin]]
+name = "catchall"
+path = "src/bin/catchall.rs"
