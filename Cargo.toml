@@ -1,6 +1,6 @@
 [package]
 name = "btinfo"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
 
 [dependencies]
@@ -20,13 +20,13 @@ env_logger = "0.11.8"
 log = "0.4.27"
 
 [[bin]]
-name = "btinfo"
-path = "src/bin/checker.rs"
+name = "dbusbtinfo"
+path = "src/bin/dbusbtinfo.rs"
 
 [[bin]]
-name = "btevents"
+name = "playground"
 path = "src/bin/playground.rs"
 
 [[bin]]
-name = "catchall"
-path = "src/bin/event.rs"
+name = "dbusevents"
+path = "src/bin/dbusevents.rs"
