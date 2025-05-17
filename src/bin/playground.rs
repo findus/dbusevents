@@ -1,7 +1,7 @@
+use btinfo::notify_process;
 use futures_util::stream::StreamExt;
 use std::collections::HashMap;
 use zbus::{proxy, zvariant::OwnedObjectPath, Connection};
-use btinfo::notify_process;
 
 #[proxy(
     default_service = "org.freedesktop.systemd1",
