@@ -20,13 +20,13 @@ env_logger = "0.11.8"
 log = "0.4.27"
 
 [[bin]]
-name = "btinfo"
+name = "checker"
 path = "src/bin/checker.rs"
 
 [[bin]]
-name = "btevents"
+name = "playground"
 path = "src/bin/playground.rs"
 
 [[bin]]
-name = "catchall"
+name = "dbusevents"
 path = "src/bin/event.rs"
