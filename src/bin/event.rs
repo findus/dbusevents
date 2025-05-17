@@ -8,6 +8,7 @@ use zbus::message::Type;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
+use log::{debug, error, log_enabled, info, Level, warn};
 
 use btinfo::notify_process;
 
@@ -58,13 +59,15 @@ impl Into<InternalEventHandler> for (String, EventHandler) {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 
+    env_logger::init();
+
     let mut path = xdg::BaseDirectories::new().config_home.expect("config home");
     let mut path = path.as_mut_os_string();
     path.push("/dbuseventshandler");
 
     fs::create_dir_all(&path).await?;
     path.push("/config.toml");
-    println!("{:?}", path);
+    debug!("{:?}", path);
     if let Ok(false) = fs::try_exists(&path).await {
         File::create(&path).expect("Could not create file");
     }
@@ -72,6 +75,7 @@ async fn main() -> anyhow::Result<()> {
     let config = fs::read_to_string(path).await?;
 
     if config.is_empty() {
+        warn!("Config is empty, exiting.");
         return Ok(());
     }
 
@@ -98,11 +102,11 @@ async fn main() -> anyhow::Result<()> {
     while let Some(msg) = stream.next().await {
         let msg = msg?;
         if msg.message_type() == Type::Signal {
-            // println!(
-            //     "{}_{}",
-            //     msg.header().path().expect("path"),
-            //     msg.header().member().expect("member")
-            // );
+            debug!(
+                "{}_{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member")
+            );
 
             for handler in &toml {
                 if handler.path.is_match(msg.header().path().expect("path")) {
