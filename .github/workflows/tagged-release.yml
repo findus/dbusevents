@@ -48,8 +48,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - run: "cargo build --release --bin dbusevents"
-      - run: "cargo build --release --bin dbusbtinfo"
+      - run: "cargo build --release --bin dbusevents --bin dbusbtinfo"
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
