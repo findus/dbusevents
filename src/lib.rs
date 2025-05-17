@@ -1,4 +1,6 @@
 use std::ffi::OsStr;
+use std::process::{Command, ExitStatus, Output};
+use std::io::{self, Error};
 
 pub fn notify_process(process: &str, signal: i32) {
     let mut system = sysinfo::System::new();
@@ -16,3 +18,10 @@ pub fn notify_process(process: &str, signal: i32) {
         println!("Waybar not active")
     }
 }
+pub fn run_shell_command(command: &str) -> Result<ExitStatus, Error> {
+    Command::new("/bin/sh")
+        .arg("-c")
+        .arg(command)
+        .status()
+}
+

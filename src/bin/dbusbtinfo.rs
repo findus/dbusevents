@@ -1,6 +1,7 @@
 use anyhow::Error;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 use zbus::zvariant::OwnedValue;
 use zbus::Connection;
 use zvariant::OwnedObjectPath;
@@ -16,7 +17,7 @@ pub type BluezManagedObjects = HashMap<
     >,
 >;
 
-#[derive(serde::Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
 struct BluetoothStatus {
     bat: u8,
     name: String,
@@ -24,7 +25,7 @@ struct BluetoothStatus {
     address: String,
 }
 
-async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
+async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
     let connection = Connection::system().await?;
     let proxy = zbus::Proxy::new(
         &connection,
@@ -34,13 +35,13 @@ async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
     )
     .await?;
 
-    let mut vec: Vec<BluetoothStatus> = vec![];
+    let mut set: HashSet<BluetoothStatus> = HashSet::new();
     let mut failcount = 20;
 
     loop {
         failcount -= 1;
         if failcount <= 0 {
-            break Ok(vec);
+            break Ok(set);
         }
 
         let objects: BluezManagedObjects = proxy.call("GetManagedObjects", &()).await?;
@@ -87,7 +88,7 @@ async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
                             })
                             .unwrap_or(Ok(0));
 
-                        vec.push(BluetoothStatus {
+                        set.insert(BluetoothStatus {
                             bat: battery_level.unwrap(),
                             name,
                             btype: icon,
@@ -106,7 +107,7 @@ pub struct WaybarStatus {
     class: String,
 }
 
-fn format_waybar(devices: &[BluetoothStatus]) -> Option<WaybarStatus> {
+fn format_waybar(devices: &HashSet<BluetoothStatus>) -> Option<WaybarStatus> {
     if devices.is_empty() {
         return Option::None;
     }
@@ -115,8 +116,8 @@ fn format_waybar(devices: &[BluetoothStatus]) -> Option<WaybarStatus> {
             81..=100 => "",
             60..=80 => "",
             40..=59 => "",
-            20..=39 => "",
-            0..=19 => "",
+            10..=39 => "",
+            0..=9 => "",
             _ => "",
         };
         format!("{} [{} {}]", last, entry.btype, batperc)
@@ -129,8 +130,8 @@ fn format_waybar(devices: &[BluetoothStatus]) -> Option<WaybarStatus> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut devices = get_devices().await?;
-    devices.sort_by_key(|item| item.name.to_string());
+    let devices = get_devices().await?;
+    //devices.so(|item| item.name.to_string());
     if let Some(status) = format_waybar(&devices) {
         println!("{}", serde_json::to_string(&status).unwrap());
     }

@@ -10,7 +10,7 @@ use zbus::fdo::DBusProxy;
 use zbus::message::Type;
 use zbus::{Connection, MatchRule, MessageStream};
 
-use btinfo::notify_process;
+use btinfo::{notify_process, run_shell_command};
 
 struct InternalEventHandler {
     name: String,
@@ -129,7 +129,7 @@ async fn main() -> anyhow::Result<()> {
                     }
                     
                     if let Some(exec) = &handler.exec {
-                        warn!("Exec unimplemented")
+                        debug!("{} Command exited with exit code: {}",handler.name, run_shell_command(exec).expect("status code"));
                     }
                 }
             }
