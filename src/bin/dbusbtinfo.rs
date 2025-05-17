@@ -130,7 +130,7 @@ fn format_waybar(devices: &HashSet<BluetoothStatus>) -> Option<WaybarStatus> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut devices = get_devices().await?;
+    let devices = get_devices().await?;
     //devices.so(|item| item.name.to_string());
     if let Some(status) = format_waybar(&devices) {
         println!("{}", serde_json::to_string(&status).unwrap());
