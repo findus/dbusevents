@@ -115,6 +115,7 @@ async fn main() -> anyhow::Result<()> {
                 if handler.path.is_match(msg.header().path().expect("path")) && handler
                         .member
                         .is_match(msg.header().member().expect("member")) {
+                    
                     if let Some(signal) = handler.signal {
                         let proc = &handler.signal_process;
                         let proc = proc
@@ -125,6 +126,10 @@ async fn main() -> anyhow::Result<()> {
                             handler.name, proc, signal
                         );
                         notify_process(proc, signal as i32);
+                    }
+                    
+                    if let Some(exec) = &handler.exec {
+                        warn!("Exec unimplemented")
                     }
                 }
             }
