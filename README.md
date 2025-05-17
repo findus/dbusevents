@@ -1,4 +1,4 @@
-Small cli toolset to print system information over dbus.
+Small cli toolset to print system information via dbus.
 
 - Standalone binary to query and display bluetooth battery status for connected devices
 - Configurable daemon that executes actions based on emitted dbus signals
