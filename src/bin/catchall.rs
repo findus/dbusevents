@@ -1,23 +1,23 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::str::FromStr;
-use lazy_static::lazy_static;
-use libc::exit;
-use zbus::{Connection, MatchRule, Message, MessageStream};
+use zbus::{Connection, MatchRule, MessageStream};
 use zbus::export::ordered_stream::OrderedStreamExt;
 use zbus::fdo::DBusProxy;
 use zbus::message::Type;
-use zvariant::Value;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
+
+use btinfo::notify_process;
 
 struct InternalEventHandler {
     name: String,
     path: Regex,
     member: Regex,
     exec: Option<String>,
-    signal: Option<u32>
+    signal: Option<u32>,
+    signal_process: Option<String>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -25,7 +25,8 @@ struct EventHandler {
     path: String,
     member: String,
     exec: Option<String>,
-    signal: Option<u32>
+    signal: Option<u32>,
+    signal_process: Option<String>
 }
 impl Into<InternalEventHandler> for EventHandler {
     fn into(self) -> InternalEventHandler {
@@ -34,7 +35,8 @@ impl Into<InternalEventHandler> for EventHandler {
             path: Regex::from_str(&self.path).expect("path regex error"),
             member: Regex::from_str(&self.member).expect("path regex error"),
             exec: self.exec,
-            signal: self.signal
+            signal: self.signal,
+            signal_process: self.signal_process
         }
     }
 }
@@ -46,7 +48,8 @@ impl Into<InternalEventHandler> for (String, EventHandler) {
             path: Regex::from_str(&self.1.path).expect("path regex error"),
             member: Regex::from_str(&self.1.member).expect("path regex error"),
             exec: self.1.exec,
-            signal: self.1.signal
+            signal: self.1.signal,
+            signal_process: self.1.signal_process
         }
     }
 }
@@ -65,18 +68,18 @@ async fn main() -> anyhow::Result<()> {
     if let Ok(false) = fs::try_exists(&path).await {
         File::create(&path).expect("Could not create file");
     }
-    
+
     let config = fs::read_to_string(path).await?;
-    
+
     if config.is_empty() {
         return Ok(());
     }
-    
+
     let toml: Vec<InternalEventHandler> = toml::from_str::<HashMap<String,EventHandler>>(&*config)?
         .into_iter()
         .map(|e|e.into())
         .collect();
-        
+
     // Connect to the session bus (use `Connection::system()` for system bus)
     let connection = Connection::session().await?;
 
@@ -95,14 +98,27 @@ async fn main() -> anyhow::Result<()> {
     while let Some(msg) = stream.next().await {
         let msg = msg?;
         if msg.message_type() == Type::Signal {
-            println!(
-                "{}_{}",
-                msg.header().path().expect("path"),
-                msg.header().member().expect("member")
-            );
+            // println!(
+            //     "{}_{}",
+            //     msg.header().path().expect("path"),
+            //     msg.header().member().expect("member")
+            // );
 
-           // println!("Body: {:#?}", msg.body());
-            println!("---");
+            for handler in &toml {
+               // println!("{:?}", handler.path);
+              //  println!("{:?}", msg.header().path().expect("path"));
+                if handler.path.is_match(msg.header().path().expect("path")) {
+               //     println!("match!");
+                    if handler.member.is_match(msg.header().member().expect("member")) {
+                        if let Some(signal) = handler.signal {
+                            let proc = &handler.signal_process;
+                            let proc = proc.as_ref().expect("executable to send signal to not found");
+                            println!("[{}] Notify: {} with Signal: {}", handler.name, proc, signal);
+                            notify_process(proc, signal as i32);
+                        }
+                    }
+                }
+            }
         }
     }
 

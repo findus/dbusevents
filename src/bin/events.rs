@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use futures_util::stream::StreamExt;
-use std::ffi::OsStr;
+use std::collections::HashMap;
 use zbus::{proxy, zvariant::OwnedObjectPath, Connection};
+use btinfo::notify_process;
 
 #[proxy(
     default_service = "org.freedesktop.systemd1",
@@ -23,24 +23,12 @@ trait Systemd1Manager {
 )]
 trait Mako {
     #[zbus(signal)]
-    fn properties_changed(&self, string: String, val: HashMap<String, zvariant::OwnedValue>, c: Vec<String>) -> zbus::Result<()>;
-}
-
-fn notify_waybar() {
-    let mut system = sysinfo::System::new();
-    system.refresh_all();
-
-    let pid = system
-        .processes_by_exact_name(OsStr::new("waybar"))
-        .next()
-        .map(|e| e.pid().as_u32() as i32);
-
-    if let Some(pid) = pid {
-        let signal_number = { libc::SIGRTMIN() + 13 };
-        let _ = unsafe { libc::kill(pid, signal_number) };
-    } else {
-        println!("Waybar not active")
-    }
+    fn properties_changed(
+        &self,
+        string: String,
+        val: HashMap<String, zvariant::OwnedValue>,
+        c: Vec<String>,
+    ) -> zbus::Result<()>;
 }
 
 async fn watch_systemd_jobs() -> anyhow::Result<()> {
@@ -49,7 +37,6 @@ async fn watch_systemd_jobs() -> anyhow::Result<()> {
 
     let systemdproxy = Systemd1ManagerProxy::new(&connection).await?;
     let makoproxy = MakoProxy::new(&session_connection).await?;
-
 
     let mut new_devices_stream = systemdproxy.receive_unit_new().await?;
     let mut devies_removed_stream = systemdproxy.receive_unit_removed().await?;
@@ -61,7 +48,7 @@ async fn watch_systemd_jobs() -> anyhow::Result<()> {
                 let args: UnitRemovedArgs = msg.args().expect("Error parsing message");
                 if args.string.contains("bluetooth") && args.string.contains("sys-subsystem") {
                     println!("Bluetooth Device removed");
-                    notify_waybar();
+                    notify_process("waybar", 13);
                 }
             }
             Ok::<(), zbus::Error>(())
@@ -71,7 +58,7 @@ async fn watch_systemd_jobs() -> anyhow::Result<()> {
                 let args: UnitNewArgs = msg.args().expect("Error parsing message");
                 if args.string.contains("bluetooth") && args.string.contains("sys-subsystem") {
                     println!("Bluetooth Device added");
-                    notify_waybar();
+                    notify_process("waybar", 13);
                 }
             }
             Ok(())
