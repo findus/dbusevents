@@ -1,0 +1,18 @@
+[mako]
+path = "/fr/emersion/Mako"
+member = ".*"
+signal = 9
+signal_process = "waybar"
+
+[bluetooth_removed]
+path = "/org/freedesktop/systemd1"
+member = "UnitRemoved"
+signal = 13
+signal_process = "waybar"
+
+
+[bluetooth_added]
+path = "/org/freedesktop/systemd1"
+member = "UnitNew"
+signal = 13
+signal_process = "waybar"

@@ -38,7 +38,7 @@ async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
     let mut failcount = 20;
 
     loop {
-        failcount = failcount - 1;
+        failcount -= 1;
         if failcount <= 0 {
             break Ok(vec);
         }
@@ -85,7 +85,7 @@ async fn get_devices() -> Result<Vec<BluetoothStatus>, Error> {
                                     .get("Percentage")
                                     .and_then(|v| v.downcast_ref::<u8>().into())
                             })
-                            .unwrap_or_else(|| Ok(0));
+                            .unwrap_or(Ok(0));
 
                         vec.push(BluetoothStatus {
                             bat: battery_level.unwrap(),
