@@ -21,7 +21,7 @@ log = "0.4.27"
 
 [[bin]]
 name = "dbusbtinfo"
-path = "src/bin/checker.rs"
+path = "src/bin/dbusbtinfo.rs"
 
 [[bin]]
 name = "playground"
@@ -29,4 +29,4 @@ path = "src/bin/playground.rs"
 
 [[bin]]
 name = "dbusevents"
-path = "src/bin/event.rs"
+path = "src/bin/dbusevents.rs"
