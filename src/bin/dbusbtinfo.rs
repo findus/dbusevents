@@ -2,6 +2,7 @@ use anyhow::Error;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::time;
 use zbus::zvariant::OwnedValue;
 use zbus::Connection;
 use zvariant::OwnedObjectPath;
@@ -47,6 +48,7 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
         let objects: BluezManagedObjects = proxy.call("GetManagedObjects", &()).await?;
 
         for (_, interfaces) in objects {
+
             if let Some(device_props) = interfaces.get("org.bluez.Device1") {
                 if let Some(connected_val) = device_props.get("Connected") {
                     if let Ok(true) = connected_val.downcast_ref::<bool>() {
@@ -54,6 +56,7 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
                             .get("Name")
                             .and_then(|v| v.downcast_ref::<String>().into())
                         else {
+                            sleep().await;
                             continue;
                         };
 
@@ -61,6 +64,7 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
                             .get("Address")
                             .and_then(|v| v.downcast_ref::<String>().into())
                         else {
+                            sleep().await;
                             continue;
                         };
 
@@ -68,6 +72,7 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
                             .get("Icon")
                             .and_then(|v| v.downcast_ref::<String>().into())
                         else {
+                            sleep().await;
                             continue;
                         };
 
@@ -79,14 +84,17 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
                         };
 
                         // Try to get battery level if available
-                        let battery_level = interfaces
-                            .get("org.bluez.Battery1")
-                            .and_then(|battery_props| {
-                                battery_props
-                                    .get("Percentage")
-                                    .and_then(|v| v.downcast_ref::<u8>().into())
-                            })
-                            .unwrap_or(Ok(0));
+                        let Some(battery_level) = interfaces
+                                .get("org.bluez.Battery1")
+                                .and_then(|battery_props| {
+                                    battery_props
+                                        .get("Percentage")
+                                        .and_then(|v| v.downcast_ref::<u8>().into())
+                                })
+                        else {
+                            sleep().await;
+                            continue;
+                        };
 
                         set.insert(BluetoothStatus {
                             bat: battery_level.unwrap(),
@@ -99,6 +107,11 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
             }
         }
     }
+}
+
+async fn sleep() {
+    let ten_millis = time::Duration::from_millis(100);
+    tokio::time::sleep(ten_millis).await;
 }
 
 #[derive(serde::Serialize, Deserialize, Debug)]
@@ -118,7 +131,7 @@ fn format_waybar(devices: &HashSet<BluetoothStatus>) -> Option<WaybarStatus> {
             40..=59 => "",
             10..=39 => "",
             0..=9 => "",
-            _ => "",
+            _ => "",
         };
         format!("{} [{} {}]", last, entry.btype, batperc)
     });
