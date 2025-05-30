@@ -1,4 +1,4 @@
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -67,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
 
     fs::create_dir_all(&path).await?;
     path.push("/config.toml");
-    debug!("{:?}", path);
+    trace!("{:?}", path);
     if let Ok(false) = fs::try_exists(&path).await {
         File::create(&path).expect("Could not create file");
     }
@@ -105,7 +105,7 @@ async fn main() -> anyhow::Result<()> {
     while let Some(msg) = stream.next().await {
         let msg = msg?;
         if msg.message_type() == Type::Signal {
-            debug!(
+            trace!(
                 "{}_{}",
                 msg.header().path().expect("path"),
                 msg.header().member().expect("member")
@@ -121,7 +121,7 @@ async fn main() -> anyhow::Result<()> {
                         let proc = proc
                             .as_ref()
                             .expect("executable to send signal to not found");
-                        println!(
+                        debug!(
                             "[{}] Notify: {} with Signal: {}",
                             handler.name, proc, signal
                         );
@@ -129,7 +129,7 @@ async fn main() -> anyhow::Result<()> {
                     }
                     
                     if let Some(exec) = &handler.exec {
-                        debug!("{} Command exited with exit code: {}",handler.name, run_shell_command(exec).expect("status code"));
+                        trace!("{} Command exited with exit code: {}",handler.name, run_shell_command(exec).expect("status code"));
                     }
                 }
             }
