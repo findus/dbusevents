@@ -4,12 +4,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::str::FromStr;
+use futures_util::FutureExt;
 use tokio::fs;
+use toml::Value;
 use zbus::export::ordered_stream::OrderedStreamExt;
 use zbus::fdo::DBusProxy;
 use zbus::message::Type;
 use zbus::{Connection, MatchRule, MessageStream};
-
+use zvariant::{signature, Array, DynamicType, OwnedValue, Structure};
+use zvariant::Signature::Signature;
 use btinfo::{notify_process, run_shell_command};
 
 struct InternalEventHandler {
@@ -104,11 +107,34 @@ async fn main() -> anyhow::Result<()> {
     // Process incoming messages
     while let Some(msg) = stream.next().await {
         let msg = msg?;
+
+        let body = msg.body();
+        let sig  = body.signature();
+        let body = body
+            .deserialize::<Structure>().map(|e| Some(e))
+            .map_or_else(|e| Option::<Structure>::None, |e|e);
+
+        let lol = if let Some(b) = body {
+            let fields: Vec<OwnedValue> = b.into_fields()
+                .into_iter().map(|e| e.try_to_owned().unwrap())
+                .collect();
+            let lolll: Vec<String> = fields.into_iter().map(|ee| {
+
+            }).collect();
+            print!("{:?}", lolll);
+        } else {
+            ()
+        };
+
+
+        //let fields = body.into_fields();
+
         if msg.message_type() == Type::Signal {
             trace!(
-                "{}_{}",
+                "{}_{}_{:?}",
                 msg.header().path().expect("path"),
-                msg.header().member().expect("member")
+                msg.header().member().expect("member"),
+                lol
             );
 
             for handler in &toml {
@@ -137,4 +163,29 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+fn to_str(owned: OwnedValue) -> String {
+
+    match owned.signature() {
+        signature::Signature::Array(child) => {
+            child.
+        }
+        signature::Signature::Unit => {}
+        signature::Signature::U8 => {}
+        signature::Signature::Bool => {}
+        signature::Signature::I16 => {}
+        signature::Signature::U16 => {}
+        signature::Signature::I32 => {}
+        signature::Signature::U32 => {}
+        signature::Signature::I64 => {}
+        signature::Signature::U64 => {}
+        signature::Signature::F64 => {}
+        signature::Signature::Str => {}
+        Signature => {}
+        signature::Signature::ObjectPath => {}
+        signature::Signature::Variant => {}
+        signature::Signature::Fd => {}
+        signature::Signature::Dict { .. } => {}
+        signature::Signature::Structure(_) => {}
+    }
 }
