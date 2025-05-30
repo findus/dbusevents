@@ -1,4 +1,5 @@
 use anyhow::Error;
+use clap::Parser;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -17,6 +18,20 @@ pub type BluezManagedObjects = HashMap<
         >,
     >,
 >;
+
+#[derive(Parser, Debug, Clone, clap::ValueEnum, Default)]
+enum OutputType {
+    WAYBAR,
+    #[default]
+    TEXT,
+}
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, value_enum, default_value_t = OutputType::TEXT)]
+    output: OutputType,
+}
 
 #[derive(serde::Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
 struct BluetoothStatus {
@@ -48,7 +63,6 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
         let objects: BluezManagedObjects = proxy.call("GetManagedObjects", &()).await?;
 
         for (_, interfaces) in objects {
-
             if let Some(device_props) = interfaces.get("org.bluez.Device1") {
                 if let Some(connected_val) = device_props.get("Connected") {
                     if let Ok(true) = connected_val.downcast_ref::<bool>() {
@@ -84,7 +98,8 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
                         };
 
                         // Try to get battery level if available
-                        let Some(battery_level) = interfaces
+                        let Some(battery_level) =
+                            interfaces
                                 .get("org.bluez.Battery1")
                                 .and_then(|battery_props| {
                                     battery_props
@@ -128,7 +143,7 @@ fn format_waybar(devices: &HashSet<BluetoothStatus>) -> Option<WaybarStatus> {
         let batperc = match entry.bat {
             81..=100 => "",
             60..=80 => "",
-            40..=59 => "",
+            40..=59 => "",
             10..=39 => "",
             0..=9 => "",
             _ => "",
@@ -143,10 +158,21 @@ fn format_waybar(devices: &HashSet<BluetoothStatus>) -> Option<WaybarStatus> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+
     let devices = get_devices().await?;
     //devices.so(|item| item.name.to_string());
-    if let Some(status) = format_waybar(&devices) {
-        println!("{}", serde_json::to_string(&status).unwrap());
+
+    match args.output {
+        OutputType::WAYBAR => {
+            if let Some(status) = format_waybar(&devices) {
+                println!("{}", serde_json::to_string(&status).unwrap());
+            }
+        }
+        OutputType::TEXT => devices.iter().for_each(|device| {
+            println!("{} {}", device.name, device.bat)
+        }),
     }
+
     Ok(())
 }
