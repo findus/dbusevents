@@ -1,5 +1,4 @@
 [![AUR package](https://repology.org/badge/version-for-repo/aur/dbusevents.svg)](https://repology.org/project/dbusevents/versions)
-[![Lines of Code](https://tokei.rs/b1/github/findus/dbusevents)](https://tokei.rs/b1/github/findus/dbusevents)
 [![CI](https://github.com/findus/dbusevents/workflows/tagged-release/badge.svg)](https://github.com/findus/dbusevents/actions)
 
 Small cli toolset to print system information via dbus.
