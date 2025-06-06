@@ -1,4 +1,4 @@
-use btinfo::{notify_process, run_shell_command};
+use btinfo::{notify_process, run_shell_command, EventHandler, InternalEventHandler};
 use futures_util::FutureExt;
 use log::{debug, trace, warn};
 use regex::Regex;
@@ -15,53 +15,6 @@ use zbus::message::Type;
 use zbus::{Connection, MatchRule, MessageStream};
 use zvariant::Signature::Signature;
 use zvariant::{signature, Array, DynamicType, OwnedValue, Structure};
-
-struct InternalEventHandler {
-    name: String,
-    path: Option<Regex>,
-    member: Option<Regex>,
-    data: Option<Regex>,
-    exec: Option<String>,
-    signal: Option<u32>,
-    signal_process: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct EventHandler {
-    path: Option<String>,
-    member: Option<String>,
-    data: Option<String>,
-    exec: Option<String>,
-    signal: Option<u32>,
-    signal_process: Option<String>,
-}
-impl From<EventHandler> for InternalEventHandler {
-    fn from(val: EventHandler) -> Self {
-        InternalEventHandler {
-            name: "".to_string(),
-            path: val.path.map(|e| Regex::from_str(&e).expect("path regex error")),
-            member: val.member.map(|e| Regex::from_str(&e).expect("member regex error")),
-            data: val.data.map(|e| Regex::from_str(&e).expect("data regex error")),
-            exec: val.exec,
-            signal: val.signal,
-            signal_process: val.signal_process,
-        }
-    }
-}
-
-impl From<(String, EventHandler)> for InternalEventHandler {
-    fn from(val: (String, EventHandler)) -> Self {
-        InternalEventHandler {
-            name: val.0,
-            path: val.1.path.map(|e| Regex::from_str(&e).expect("path regex error")),
-            member: val.1.member.map(|e| Regex::from_str(&e).expect("member regex error")),
-            data: val.1.data.map(|e| Regex::from_str(&e).expect("data regex error")),
-            exec: val.1.exec,
-            signal: val.1.signal,
-            signal_process: val.1.signal_process,
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -92,23 +45,18 @@ async fn main() -> anyhow::Result<()> {
         .map(|e| e.into())
         .collect();
 
-    // Connect to the session bus (use `Connection::system()` for system bus)
     let connection = Connection::session().await?;
 
-    // Get a proxy to the D-Bus service to add a match rule
     let dbus_proxy = DBusProxy::new(&connection).await?;
 
-    // Add a match rule to receive all signals
     dbus_proxy
         .add_match_rule(MatchRule::try_from("type='signal'")?)
         .await?;
 
     println!("Listening to all D-Bus signals...");
 
-    // Create a MessageStream to receive messages
     let mut stream = MessageStream::from(&connection);
 
-    // Process incoming messages
     while let Some(msg) = stream.next().await {
         let msg = msg?;
 
