@@ -1,21 +1,14 @@
+use anyhow::Error;
 use btinfo::{notify_process, run_shell_command, EventHandler, InternalEventHandler};
-use futures_util::FutureExt;
 use log::{debug, trace, warn};
-use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::net::ToSocketAddrs;
-use std::str::FromStr;
-use anyhow::Error;
 use tokio::fs;
-use toml::Value;
 use zbus::export::ordered_stream::OrderedStreamExt;
 use zbus::fdo::DBusProxy;
 use zbus::message::Type;
 use zbus::{Connection, MatchRule, Message, MessageStream};
-use zvariant::Signature::Signature;
-use zvariant::{signature, Array, DynamicType, OwnedValue, Structure};
+use zvariant::{Structure};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
