@@ -28,9 +28,9 @@ struct InternalEventHandler {
 
 #[derive(Serialize, Deserialize)]
 struct EventHandler {
-    path: String,
-    member: String,
-    data: String,
+    path: Option<String>,
+    member: Option<String>,
+    data: Option<String>,
     exec: Option<String>,
     signal: Option<u32>,
     signal_process: Option<String>,
@@ -39,9 +39,9 @@ impl From<EventHandler> for InternalEventHandler {
     fn from(val: EventHandler) -> Self {
         InternalEventHandler {
             name: "".to_string(),
-            path: Some(Regex::from_str(&val.path).expect("path regex error")),
-            member: Some(Regex::from_str(&val.member).expect("path regex error")),
-            data: Some(Regex::from_str(&val.data).expect("data regex error")),
+            path: val.path.map(|e| Regex::from_str(&e).expect("path regex error")),
+            member: val.member.map(|e| Regex::from_str(&e).expect("member regex error")),
+            data: val.data.map(|e| Regex::from_str(&e).expect("data regex error")),
             exec: val.exec,
             signal: val.signal,
             signal_process: val.signal_process,
@@ -53,9 +53,9 @@ impl From<(String, EventHandler)> for InternalEventHandler {
     fn from(val: (String, EventHandler)) -> Self {
         InternalEventHandler {
             name: val.0,
-            path: Some(Regex::from_str(&val.1.path).expect("path regex error")),
-            member: Some(Regex::from_str(&val.1.member).expect("path regex error")),
-            data: Some(Regex::from_str(&val.1.data).expect("data regex error")),
+            path: val.1.path.map(|e| Regex::from_str(&e).expect("path regex error")),
+            member: val.1.member.map(|e| Regex::from_str(&e).expect("member regex error")),
+            data: val.1.data.map(|e| Regex::from_str(&e).expect("data regex error")),
             exec: val.1.exec,
             signal: val.1.signal,
             signal_process: val.1.signal_process,
