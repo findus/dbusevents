@@ -1,15 +1,15 @@
 use anyhow::Error;
 use btinfo::{notify_process, run_shell_command, EventHandler, InternalEventHandler};
+use clap::Parser;
 use log::{debug, trace, warn};
 use std::collections::HashMap;
 use std::fs::File;
-use clap::Parser;
 use tokio::fs;
 use zbus::export::ordered_stream::OrderedStreamExt;
 use zbus::fdo::DBusProxy;
 use zbus::message::Type;
 use zbus::{Connection, MatchRule, Message, MessageStream};
-use zvariant::{Structure};
+use zvariant::Structure;
 
 #[derive(Parser, Debug, Clone, clap::ValueEnum, Default)]
 enum Mode {
@@ -22,7 +22,7 @@ enum Mode {
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(short, long, value_enum, default_value_t = Mode::WATCH)]
-    output: Mode,
+    mode: Mode,
 }
 
 #[tokio::main]
@@ -68,47 +68,68 @@ async fn main() -> anyhow::Result<()> {
 
     let mut stream = MessageStream::from(&connection);
 
+    let func: Box<dyn Fn(&Message, &String)> = match args.mode {
+        Mode::EVENT => Box::new(|msg, data| handle_events(&toml, &msg, &data)),
+        Mode::WATCH => Box::new(|msg, data| print_events(&toml, &msg, &data)),
+    };
+
     while let Some(msg) = stream.next().await {
-        
         let (msg, data) = parse_signal(msg?)?;
-        
-        if msg.message_type() == Type::Signal {
-            if data.len() == 0 {
-                trace!(
-                    "{}_{}",
-                    msg.header().path().expect("path"),
-                    msg.header().member().expect("member")
-                );
-            } else {
-                trace!(
-                    "{}_{}_\n{}",
-                    msg.header().path().expect("path"),
-                    msg.header().member().expect("member"),
-                    data
-                );
-            }
+        func(&msg, &data);
+    }
 
-            for handler in &toml {
-                if matches_config_rule(&msg, &data, handler)
-                {
-                    if let Some(signal) = handler.signal {
-                        send_signal(&handler, signal);
-                    }
+    Ok(())
+}
 
-                    if let Some(exec) = &handler.exec {
-                        let result = run_shell_command(exec).expect("status code");
-                        trace!(
-                            "{} Command exited with exit code: {}",
-                            handler.name,
-                            result
-                        );
-                    }
+fn print_events(_: &Vec<InternalEventHandler>, msg: &Message, data: &String) {
+    if msg.message_type() == Type::Signal {
+        if data.len() == 0 {
+            println!(
+                "{}_{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member")
+            );
+        } else {
+            println!(
+                "{}_{}_\n{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member"),
+                data
+            );
+        }
+    }
+}
+
+fn handle_events(toml: &Vec<InternalEventHandler>, msg: &Message, data: &String) {
+    if msg.message_type() == Type::Signal {
+        if data.len() == 0 {
+            trace!(
+                "{}_{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member")
+            );
+        } else {
+            trace!(
+                "{}_{}_\n{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member"),
+                data
+            );
+        }
+
+        for handler in toml {
+            if matches_config_rule(&msg, &data, handler) {
+                if let Some(signal) = handler.signal {
+                    send_signal(&handler, signal);
+                }
+
+                if let Some(exec) = &handler.exec {
+                    let result = run_shell_command(exec).expect("status code");
+                    trace!("{} Command exited with exit code: {}", handler.name, result);
                 }
             }
         }
     }
-
-    Ok(())
 }
 
 fn send_signal(handler: &&InternalEventHandler, signal: u32) {
@@ -117,9 +138,9 @@ fn send_signal(handler: &&InternalEventHandler, signal: u32) {
         .as_ref()
         .expect("executable to send signal to not found");
     debug!(
-                            "[{}] Notify: {} with Signal: {}",
-                            handler.name, proc, signal
-                        );
+        "[{}] Notify: {} with Signal: {}",
+        handler.name, proc, signal
+    );
     notify_process(proc, signal as i32);
 }
 
@@ -130,24 +151,23 @@ fn matches_config_rule(msg: &Message, data: &String, handler: &InternalEventHand
         .map(|e| e.is_match(msg.header().path().expect("path")))
         .unwrap_or(true)
         && handler
-        .member
-        .as_ref()
-        .map(|e| e.is_match(msg.header().member().expect("member")))
-        .unwrap_or(true)
+            .member
+            .as_ref()
+            .map(|e| e.is_match(msg.header().member().expect("member")))
+            .unwrap_or(true)
         && handler
-        .data
-        .as_ref()
-        .map(|e| e.is_match(&data))
-        .unwrap_or(true)
+            .data
+            .as_ref()
+            .map(|e| e.is_match(&data))
+            .unwrap_or(true)
 }
 
 fn parse_signal(msg: Message) -> Result<(Message, String), Error> {
-
     let body = msg.body();
     let body = body
         .deserialize::<Structure>()
         .map(|e| Some(e))
-        .map_or_else(|e| Option::<Structure>::None, |e| e);
+        .map_or_else(|_| Option::<Structure>::None, |e| e);
 
     let data = if let Some(b) = body {
         let content: Vec<String> = b

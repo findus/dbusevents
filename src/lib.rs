@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
-use std::process::{Command, ExitStatus, Output};
-use std::io::{self, Error};
+use std::process::{Command, ExitStatus};
+use std::io::{Error};
 use std::str::FromStr;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
