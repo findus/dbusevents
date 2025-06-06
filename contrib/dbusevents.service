@@ -1,11 +1,11 @@
 [Unit]
-Description=btevents
+Description=dbusevents
 
 
 [Service]
 Restart=always
 RestartSec=3
-ExecStart=/usr/bin/dbusevents
+ExecStart=/usr/bin/dbusevents --mode event
 
 [Install]
 WantedBy=default.target
