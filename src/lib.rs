@@ -65,7 +65,7 @@ pub fn notify_process(process: &str, signal: i32) {
         let signal_number = { libc::SIGRTMIN() + signal };
         let _ = unsafe { libc::kill(pid, signal_number) };
     } else {
-        println!("Waybar not active")
+        println!("Process not active")
     }
 }
 pub fn run_shell_command(command: &str) -> Result<ExitStatus, Error> {
