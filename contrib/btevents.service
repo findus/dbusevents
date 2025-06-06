@@ -1,0 +1,12 @@
+[Unit]
+Description=btevents
+
+
+[Service]
+Restart=always
+RestartSec=3
+ExecStart=/usr/bin/dbusevents
+
+[Install]
+WantedBy=default.target
+# WantedBy=daemon.target
