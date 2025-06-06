@@ -85,13 +85,13 @@ fn print_events(_: &Vec<InternalEventHandler>, msg: &Message, data: &String) {
     if msg.message_type() == Type::Signal {
         if data.len() == 0 {
             println!(
-                "{}_{}",
+                "Path:{} Member:{}",
                 msg.header().path().expect("path"),
                 msg.header().member().expect("member")
             );
         } else {
             println!(
-                "{}_{}_\n{}",
+                "Path:{} Member:{}\n{}",
                 msg.header().path().expect("path"),
                 msg.header().member().expect("member"),
                 data
@@ -104,13 +104,13 @@ fn handle_events(toml: &Vec<InternalEventHandler>, msg: &Message, data: &String)
     if msg.message_type() == Type::Signal {
         if data.len() == 0 {
             trace!(
-                "{}_{}",
+                "Path:{} Member:{}",
                 msg.header().path().expect("path"),
                 msg.header().member().expect("member")
             );
         } else {
             trace!(
-                "{}_{}_\n{}",
+                "Path:{} Member:{}\n{}",
                 msg.header().path().expect("path"),
                 msg.header().member().expect("member"),
                 data
