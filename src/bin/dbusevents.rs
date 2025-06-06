@@ -5,6 +5,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
+use std::net::ToSocketAddrs;
 use std::str::FromStr;
 use tokio::fs;
 use toml::Value;
@@ -17,8 +18,9 @@ use zvariant::{signature, Array, DynamicType, OwnedValue, Structure};
 
 struct InternalEventHandler {
     name: String,
-    path: Regex,
-    member: Regex,
+    path: Option<Regex>,
+    member: Option<Regex>,
+    data: Option<Regex>,
     exec: Option<String>,
     signal: Option<u32>,
     signal_process: Option<String>,
@@ -28,6 +30,7 @@ struct InternalEventHandler {
 struct EventHandler {
     path: String,
     member: String,
+    data: String,
     exec: Option<String>,
     signal: Option<u32>,
     signal_process: Option<String>,
@@ -36,8 +39,9 @@ impl From<EventHandler> for InternalEventHandler {
     fn from(val: EventHandler) -> Self {
         InternalEventHandler {
             name: "".to_string(),
-            path: Regex::from_str(&val.path).expect("path regex error"),
-            member: Regex::from_str(&val.member).expect("path regex error"),
+            path: Some(Regex::from_str(&val.path).expect("path regex error")),
+            member: Some(Regex::from_str(&val.member).expect("path regex error")),
+            data: Some(Regex::from_str(&val.data).expect("data regex error")),
             exec: val.exec,
             signal: val.signal,
             signal_process: val.signal_process,
@@ -49,8 +53,9 @@ impl From<(String, EventHandler)> for InternalEventHandler {
     fn from(val: (String, EventHandler)) -> Self {
         InternalEventHandler {
             name: val.0,
-            path: Regex::from_str(&val.1.path).expect("path regex error"),
-            member: Regex::from_str(&val.1.member).expect("path regex error"),
+            path: Some(Regex::from_str(&val.1.path).expect("path regex error")),
+            member: Some(Regex::from_str(&val.1.member).expect("path regex error")),
+            data: Some(Regex::from_str(&val.1.data).expect("data regex error")),
             exec: val.1.exec,
             signal: val.1.signal,
             signal_process: val.1.signal_process,
@@ -113,7 +118,7 @@ async fn main() -> anyhow::Result<()> {
             .map(|e| Some(e))
             .map_or_else(|e| Option::<Structure>::None, |e| e);
 
-        let lol = if let Some(b) = body {
+        let data = if let Some(b) = body {
             let content: Vec<String> = b
                 .into_fields()
                 .into_iter()
@@ -128,7 +133,7 @@ async fn main() -> anyhow::Result<()> {
         //let fields = body.into_fields();
 
         if msg.message_type() == Type::Signal {
-            if lol.len() == 0 {
+            if data.len() == 0 {
                 trace!(
                     "{}_{}",
                     msg.header().path().expect("path"),
@@ -139,15 +144,26 @@ async fn main() -> anyhow::Result<()> {
                     "{}_{}_\n{}",
                     msg.header().path().expect("path"),
                     msg.header().member().expect("member"),
-                    lol
+                    data
                 );
             }
 
             for handler in &toml {
-                if handler.path.is_match(msg.header().path().expect("path"))
+                if handler
+                    .path
+                    .as_ref()
+                    .map(|e| e.is_match(msg.header().path().expect("path")))
+                    .unwrap_or(true)
                     && handler
                         .member
-                        .is_match(msg.header().member().expect("member"))
+                        .as_ref()
+                        .map(|e| e.is_match(msg.header().member().expect("member")))
+                        .unwrap_or(true)
+                    && handler
+                        .data
+                        .as_ref()
+                        .map(|e| e.is_match(&data))
+                        .unwrap_or(true)
                 {
                     if let Some(signal) = handler.signal {
                         let proc = &handler.signal_process;
