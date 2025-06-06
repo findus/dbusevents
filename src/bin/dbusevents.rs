@@ -3,6 +3,7 @@ use btinfo::{notify_process, run_shell_command, EventHandler, InternalEventHandl
 use log::{debug, trace, warn};
 use std::collections::HashMap;
 use std::fs::File;
+use clap::Parser;
 use tokio::fs;
 use zbus::export::ordered_stream::OrderedStreamExt;
 use zbus::fdo::DBusProxy;
@@ -10,9 +11,25 @@ use zbus::message::Type;
 use zbus::{Connection, MatchRule, Message, MessageStream};
 use zvariant::{Structure};
 
+#[derive(Parser, Debug, Clone, clap::ValueEnum, Default)]
+enum Mode {
+    EVENT,
+    #[default]
+    WATCH,
+}
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, value_enum, default_value_t = Mode::WATCH)]
+    output: Mode,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
+
+    let args = Args::parse();
 
     let mut path = xdg::BaseDirectories::new()
         .config_home
