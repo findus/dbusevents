@@ -1,63 +1,35 @@
+use anyhow::Error;
+use btinfo::{notify_process, run_shell_command, EventHandler, InternalEventHandler};
+use clap::Parser;
 use log::{debug, trace, warn};
-use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::str::FromStr;
 use tokio::fs;
 use zbus::export::ordered_stream::OrderedStreamExt;
 use zbus::fdo::DBusProxy;
 use zbus::message::Type;
-use zbus::{Connection, MatchRule, MessageStream};
+use zbus::{Connection, MatchRule, Message, MessageStream};
+use zvariant::Structure;
 
-use btinfo::{notify_process, run_shell_command};
-
-struct InternalEventHandler {
-    name: String,
-    path: Regex,
-    member: Regex,
-    exec: Option<String>,
-    signal: Option<u32>,
-    signal_process: Option<String>,
+#[derive(Parser, Debug, Clone, clap::ValueEnum, Default)]
+enum Mode {
+    EVENT,
+    #[default]
+    WATCH,
 }
 
-#[derive(Serialize, Deserialize)]
-struct EventHandler {
-    path: String,
-    member: String,
-    exec: Option<String>,
-    signal: Option<u32>,
-    signal_process: Option<String>,
-}
-impl From<EventHandler> for InternalEventHandler {
-    fn from(val: EventHandler) -> Self {
-        InternalEventHandler {
-            name: "".to_string(),
-            path: Regex::from_str(&val.path).expect("path regex error"),
-            member: Regex::from_str(&val.member).expect("path regex error"),
-            exec: val.exec,
-            signal: val.signal,
-            signal_process: val.signal_process,
-        }
-    }
-}
-
-impl From<(String, EventHandler)> for InternalEventHandler {
-    fn from(val: (String, EventHandler)) -> Self {
-        InternalEventHandler {
-            name: val.0,
-            path: Regex::from_str(&val.1.path).expect("path regex error"),
-            member: Regex::from_str(&val.1.member).expect("path regex error"),
-            exec: val.1.exec,
-            signal: val.1.signal,
-            signal_process: val.1.signal_process,
-        }
-    }
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, value_enum, default_value_t = Mode::WATCH)]
+    mode: Mode,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
+
+    let args = Args::parse();
 
     let mut path = xdg::BaseDirectories::new()
         .config_home
@@ -79,62 +51,134 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let toml: Vec<InternalEventHandler> =
-        toml::from_str::<HashMap<String, EventHandler>>(&config)?
-            .into_iter()
-            .map(|e| e.into())
-            .collect();
+    let toml: Vec<InternalEventHandler> = toml::from_str::<HashMap<String, EventHandler>>(&config)?
+        .into_iter()
+        .map(|e| e.into())
+        .collect();
 
-    // Connect to the session bus (use `Connection::system()` for system bus)
     let connection = Connection::session().await?;
 
-    // Get a proxy to the D-Bus service to add a match rule
     let dbus_proxy = DBusProxy::new(&connection).await?;
 
-    // Add a match rule to receive all signals
     dbus_proxy
         .add_match_rule(MatchRule::try_from("type='signal'")?)
         .await?;
 
     println!("Listening to all D-Bus signals...");
 
-    // Create a MessageStream to receive messages
     let mut stream = MessageStream::from(&connection);
 
-    // Process incoming messages
+    let func: Box<dyn Fn(&Message, &String)> = match args.mode {
+        Mode::EVENT => Box::new(|msg, data| handle_events(&toml, &msg, &data)),
+        Mode::WATCH => Box::new(|msg, data| print_events(&toml, &msg, &data)),
+    };
+
     while let Some(msg) = stream.next().await {
-        let msg = msg?;
-        if msg.message_type() == Type::Signal {
-            trace!(
-                "{}_{}",
+        let (msg, data) = parse_signal(msg?)?;
+        func(&msg, &data);
+    }
+
+    Ok(())
+}
+
+fn print_events(_: &Vec<InternalEventHandler>, msg: &Message, data: &String) {
+    if msg.message_type() == Type::Signal {
+        if data.len() == 0 {
+            println!(
+                "Path:{} Member:{}",
                 msg.header().path().expect("path"),
                 msg.header().member().expect("member")
             );
+        } else {
+            println!(
+                "Path:{} Member:{}\n{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member"),
+                data
+            );
+        }
+    }
+}
 
-            for handler in &toml {
-                if handler.path.is_match(msg.header().path().expect("path")) && handler
-                        .member
-                        .is_match(msg.header().member().expect("member")) {
-                    
-                    if let Some(signal) = handler.signal {
-                        let proc = &handler.signal_process;
-                        let proc = proc
-                            .as_ref()
-                            .expect("executable to send signal to not found");
-                        debug!(
-                            "[{}] Notify: {} with Signal: {}",
-                            handler.name, proc, signal
-                        );
-                        notify_process(proc, signal as i32);
-                    }
-                    
-                    if let Some(exec) = &handler.exec {
-                        trace!("{} Command exited with exit code: {}",handler.name, run_shell_command(exec).expect("status code"));
-                    }
+fn handle_events(toml: &Vec<InternalEventHandler>, msg: &Message, data: &String) {
+    if msg.message_type() == Type::Signal {
+        if data.len() == 0 {
+            trace!(
+                "Path:{} Member:{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member")
+            );
+        } else {
+            trace!(
+                "Path:{} Member:{}\n{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member"),
+                data
+            );
+        }
+
+        for handler in toml {
+            if matches_config_rule(&msg, &data, handler) {
+                if let Some(signal) = handler.signal {
+                    send_signal(&handler, signal);
+                }
+
+                if let Some(exec) = &handler.exec {
+                    let result = run_shell_command(exec).expect("status code");
+                    trace!("{} Command exited with exit code: {}", handler.name, result);
                 }
             }
         }
     }
+}
 
-    Ok(())
+fn send_signal(handler: &&InternalEventHandler, signal: u32) {
+    let proc = &handler.signal_process;
+    let proc = proc
+        .as_ref()
+        .expect("executable to send signal to not found");
+    debug!(
+        "[{}] Notify: {} with Signal: {}",
+        handler.name, proc, signal
+    );
+    notify_process(proc, signal as i32);
+}
+
+fn matches_config_rule(msg: &Message, data: &String, handler: &InternalEventHandler) -> bool {
+    handler
+        .path
+        .as_ref()
+        .map(|e| e.is_match(msg.header().path().expect("path")))
+        .unwrap_or(true)
+        && handler
+            .member
+            .as_ref()
+            .map(|e| e.is_match(msg.header().member().expect("member")))
+            .unwrap_or(true)
+        && handler
+            .data
+            .as_ref()
+            .map(|e| e.is_match(&data))
+            .unwrap_or(true)
+}
+
+fn parse_signal(msg: Message) -> Result<(Message, String), Error> {
+    let body = msg.body();
+    let body = body
+        .deserialize::<Structure>()
+        .map(|e| Some(e))
+        .map_or_else(|_| Option::<Structure>::None, |e| e);
+
+    let data = if let Some(b) = body {
+        let content: Vec<String> = b
+            .into_fields()
+            .into_iter()
+            .map(|e| e.try_to_owned().unwrap())
+            .map(|ee| serde_json::to_string_pretty(&ee).unwrap())
+            .collect();
+        content.join(",\n")
+    } else {
+        "".to_string()
+    };
+    Ok((msg, data))
 }
