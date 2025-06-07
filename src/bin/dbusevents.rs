@@ -10,6 +10,7 @@ use zbus::fdo::DBusProxy;
 use zbus::message::Type;
 use zbus::{Connection, MatchRule, Message, MessageStream};
 use zvariant::Structure;
+use colored::Colorize;
 
 #[derive(Parser, Debug, Clone, clap::ValueEnum, Default)]
 enum Mode {
@@ -83,18 +84,22 @@ async fn main() -> anyhow::Result<()> {
 
 fn print_events(_: &Vec<InternalEventHandler>, msg: &Message, data: &String) {
     if msg.message_type() == Type::Signal {
+        let header =  msg.header();
+        let path =header.path().expect("path").to_string().cyan();
+        let member =  header.member().expect("member").to_string().bright_cyan();
+        
         if data.len() == 0 {
             println!(
                 "Path:{} Member:{}",
-                msg.header().path().expect("path"),
-                msg.header().member().expect("member")
+                path,
+                member
             );
         } else {
             println!(
                 "Path:{} Member:{}\n{}",
-                msg.header().path().expect("path"),
-                msg.header().member().expect("member"),
-                data
+                path,
+                member,
+                data.to_string().white()
             );
         }
     }
