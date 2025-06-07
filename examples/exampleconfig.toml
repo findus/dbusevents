@@ -20,3 +20,9 @@ data = "sys-subsystem-bluetooth-devices"
 signal = 13
 signal_process = "waybar"
 exec = 'notify-send "Bluetooth Device connected"'
+
+[boom]
+path = ".*"
+member = "NameOwnerChanged"
+member_not = true
+exec = 'mpv ~/vine-boom.mp3 1>/dev/null 2>/dev/null'

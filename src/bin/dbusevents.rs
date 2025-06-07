@@ -1,6 +1,7 @@
 use anyhow::Error;
 use btinfo::{notify_process, run_shell_command, EventHandler, InternalEventHandler};
 use clap::Parser;
+use colored::Colorize;
 use log::{debug, trace, warn};
 use std::collections::HashMap;
 use std::fs::File;
@@ -10,7 +11,6 @@ use zbus::fdo::DBusProxy;
 use zbus::message::Type;
 use zbus::{Connection, MatchRule, Message, MessageStream};
 use zvariant::Structure;
-use colored::Colorize;
 
 #[derive(Parser, Debug, Clone, clap::ValueEnum, Default)]
 enum Mode {
@@ -84,16 +84,12 @@ async fn main() -> anyhow::Result<()> {
 
 fn print_events(_: &Vec<InternalEventHandler>, msg: &Message, data: &String) {
     if msg.message_type() == Type::Signal {
-        let header =  msg.header();
-        let path =header.path().expect("path").to_string().cyan();
-        let member =  header.member().expect("member").to_string().bright_cyan();
-        
+        let header = msg.header();
+        let path = header.path().expect("path").to_string().cyan();
+        let member = header.member().expect("member").to_string().bright_cyan();
+
         if data.len() == 0 {
-            println!(
-                "Path:{} Member:{}",
-                path,
-                member
-            );
+            println!("Path:{} Member:{}", path, member);
         } else {
             println!(
                 "Path:{} Member:{}\n{}",
@@ -129,8 +125,8 @@ fn handle_events(toml: &Vec<InternalEventHandler>, msg: &Message, data: &String)
                 }
 
                 if let Some(exec) = &handler.exec {
-                    let result = run_shell_command(exec).expect("status code");
-                    trace!("{} Command exited with exit code: {}", handler.name, result);
+                    debug!("{} {:?}", msg.header().member().expect("member"), handler);
+                    run_shell_command(handler.name.clone(), exec.to_string());
                 }
             }
         }
@@ -154,16 +150,19 @@ fn matches_config_rule(msg: &Message, data: &String, handler: &InternalEventHand
         .path
         .as_ref()
         .map(|e| e.is_match(msg.header().path().expect("path")))
+        .map(|e| handler.path_not.unwrap_or(false) ^ e)
         .unwrap_or(true)
         && handler
             .member
             .as_ref()
             .map(|e| e.is_match(msg.header().member().expect("member")))
+            .map(|e| handler.member_not.unwrap_or(false) ^ e)
             .unwrap_or(true)
         && handler
             .data
             .as_ref()
             .map(|e| e.is_match(&data))
+            .map(|e| handler.data_not.unwrap_or(false) ^ e)
             .unwrap_or(true)
 }
 
