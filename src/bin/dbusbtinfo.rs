@@ -52,7 +52,7 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
     .await?;
 
     let mut set: HashSet<BluetoothStatus> = HashSet::new();
-    let mut failcount = 20;
+    let mut failcount = 100;
 
     loop {
         failcount -= 1;
