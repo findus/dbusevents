@@ -91,6 +91,8 @@ async fn get_devices() -> Result<HashSet<BluetoothStatus>, Error> {
                         };
 
                         let icon = match icon_type.as_str() {
+                            "input-gaming" => "".to_string(),
+                            "input-tablet" => "".to_string(),
                             "input-mouse" => "".to_string(),
                             "input-keyboard" => "".to_string(),
                             "audio-headset" | "audio-headphones" => "".to_string(),
