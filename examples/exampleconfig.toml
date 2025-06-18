@@ -7,7 +7,7 @@ signal_process = "waybar"
 [bluetooth_removed]
 path = "/org/freedesktop/systemd1"
 member = "UnitRemoved"
-data = "sys-subsystem-bluetooth-devices"
+data = '''sys-subsystem-bluetooth-devices-.*:\d+\.device'''
 signal = 13
 signal_process = "waybar"
 exec = 'notify-send "Bluetooth Device removed"'
@@ -16,7 +16,7 @@ exec = 'notify-send "Bluetooth Device removed"'
 [bluetooth_added]
 path = "/org/freedesktop/systemd1"
 member = "UnitNew"
-data = "sys-subsystem-bluetooth-devices"
+data = '''sys-subsystem-bluetooth-devices-.*:\d+\.device'''
 signal = 13
 signal_process = "waybar"
 exec = 'notify-send "Bluetooth Device connected"'
