@@ -102,34 +102,54 @@ fn print_events(_: &Vec<InternalEventHandler>, msg: &Message, data: &String) {
 }
 
 fn handle_events(toml: &Vec<InternalEventHandler>, msg: &Message, data: &String) {
+    
+    let mut should_print_trace = false;
+    
     if msg.message_type() == Type::Signal {
-        if data.len() == 0 {
-            trace!(
-                "Path:{} Member:{}",
-                msg.header().path().expect("path"),
-                msg.header().member().expect("member")
-            );
-        } else {
-            trace!(
-                "Path:{} Member:{}\n{}",
-                msg.header().path().expect("path"),
-                msg.header().member().expect("member"),
-                data
-            );
-        }
 
         for handler in toml {
             if matches_config_rule(&msg, &data, handler) {
+                debug!(
+                    "{} [{}]\nPath:{} Member:{}\n{}",
+                    "Hit:".red(),
+                    handler.name,
+                    msg.header().path().expect("path"),
+                    msg.header().member().expect("member"),
+                    data
+                );
+                
+                should_print_trace = true;
+
                 if let Some(signal) = handler.signal {
                     send_signal(&handler, signal);
                 }
 
                 if let Some(exec) = &handler.exec {
-                    debug!("{} {:?}", msg.header().member().expect("member"), handler);
                     run_shell_command(handler.name.clone(), exec.to_string());
                 }
             }
         }
+        
+        if should_print_trace {
+            print_trace(msg, data);
+        }
+    }
+}
+
+fn print_trace(msg: &Message, data: &String) {
+    if data.len() == 0 {
+        trace!(
+                "Path:{} Member:{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member")
+            );
+    } else {
+        trace!(
+                "Path:{} Member:{}\n{}",
+                msg.header().path().expect("path"),
+                msg.header().member().expect("member"),
+                data
+            );
     }
 }
 
@@ -138,7 +158,7 @@ fn send_signal(handler: &&InternalEventHandler, signal: u32) {
     let proc = proc
         .as_ref()
         .expect("executable to send signal to not found");
-    debug!(
+    trace!(
         "[{}] Notify: {} with Signal: {}",
         handler.name, proc, signal
     );

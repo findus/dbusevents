@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::process::{Command};
 use std::str::FromStr;
 use std::thread;
-use log::{debug, trace};
+use log::{trace};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -79,11 +79,11 @@ pub fn notify_process(process: &str, signal: i32) {
         let signal_number = { libc::SIGRTMIN() + signal };
         let _ = unsafe { libc::kill(pid, signal_number) };
     } else {
-        println!("Process not active")
+        trace!("Process not active")
     }
 }
 pub fn run_shell_command(handler_name: String, command: String) {
-    debug!("Run Shell Command: {}", command);
+    trace!("Run Shell Command: {}", command);
     let _ = thread::spawn( move || {
         let result = Command::new("/bin/sh")
             .arg("-c")
