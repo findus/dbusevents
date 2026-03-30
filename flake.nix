@@ -22,5 +22,19 @@
       }
     );
 
+    apps = nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" ] (system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ self.overlays.default ];
+        };
+        mkApp = bin: { type = "app"; program = "${pkgs.btinfo}/bin/${bin}"; };
+      in {
+        default = mkApp "dbusevents";
+        dbusevents = mkApp "dbusevents";
+        dbusbtinfo = mkApp "dbusbtinfo";
+      }
+    );
+
   };
 }
